@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doodle Pad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3EFEA;
+    --ink:#1F1B18;
+    --card:#FFFFFF;
+    --line:#E2DBD0;
+    --accent:#E85D3D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:1.5rem 1rem 2.5rem;
+    min-height:100vh;
+  }
+  h1{
+    font-family:'Fraunces',serif; font-weight:700;
+    font-size:clamp(1.6rem,5vw,2.2rem);
+    margin:.2rem 0 .3rem;
+  }
+  p.sub{color:#6b6358; margin:0 0 1.2rem; font-size:.95rem; text-align:center;}
+
+  .board-wrap{
+    background:var(--card);
+    border-radius:18px;
+    padding:14px;
+    box-shadow:0 10px 30px rgba(31,27,24,0.12);
+    border:1px solid var(--line);
+  }
+  canvas{
+    display:block;
+    border-radius:12px;
+    background:#ffffff;
+    touch-action:none;
+    cursor:crosshair;
+  }
+
+  .toolbar{
+    display:flex; align-items:center; justify-content:center;
+    flex-wrap:wrap;
+    gap:.6rem;
+    margin-top:1rem;
+    max-width:640px;
+  }
+  .swatches{display:flex; gap:.45rem;}
+  .swatch{
+    width:34px; height:34px; border-radius:50%;
+    border:2px solid rgba(0,0,0,0.08);
+    cursor:pointer;
+    transition:transform .12s;
+    padding:0;
+  }
+  .swatch:hover{transform:scale(1.12);}
+  .swatch.active{
+    box-shadow:0 0 0 3px var(--card), 0 0 0 5px var(--ink);
+  }
+
+  .divider{width:1px; height:26px; background:var(--line); margin:0 .3rem;}
+
+  button.tool{
+    appearance:none; border:1px solid var(--line); background:var(--card);
+    color:var(--ink); font-family:'Inter',sans-serif; font-weight:600; font-size:.85rem;
+    padding:.5rem .9rem; border-radius:10px; cursor:pointer;
+    display:flex; align-items:center; gap:.4rem;
+    transition:background .15s, transform .1s;
+  }
+  button.tool:hover{background:#F7F3EE;}
+  button.tool:active{transform:scale(.96);}
+  button.tool.primary{background:var(--ink); color:#fff; border-color:var(--ink);}
+  button.tool.primary:hover{background:#33302C;}
+
+  .size-row{display:flex; align-items:center; gap:.5rem;}
+  input[type=range]{width:100px; accent-color:var(--accent);}
+
+  footer{margin-top:1.3rem; font-size:.8rem; color:#9a9184;}
+</style>
+</head>
+<body>
+
+  <h1>Doodle Pad</h1>
+  <p class="sub">Draw whatever you want — pick a color, pick a size, go.</p>
+
+  <div class="board-wrap">
+    <canvas id="board" width="600" height="420"></canvas>
+  </div>
+
+  <div class="toolbar">
+    <div class="swatches" id="swatches"></div>
+    <div class="divider"></div>
+    <div class="size-row">
+      <span style="font-size:.8rem; color:#6b6358;">Size</span>
+      <input type="range" id="brushSize" min="2" max="28" value="6">
+    </div>
+    <div class="divider"></div>
+    <button class="tool" id="eraserBtn">🧽 Eraser</button>
+    <button class="tool" id="clearBtn">🗑 Clear</button>
+    <button class="tool primary" id="saveBtn">⬇ Save PNG</button>
+  </div>
+
+  <footer>Click and drag (or touch and drag) to draw.</footer>
+
+<script>
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+
+  // white background baked in so saved PNGs aren't transparent
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const colors = ['#1F1B18', '#E85D3D', '#F2B705', '#3E8E5A', '#2E6FBF', '#8E4CA6', '#E85D9E', '#FFFFFF'];
+  const swatchWrap = document.getElementById('swatches');
+  let currentColor = colors[0];
+  let erasing = false;
+
+  colors.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'swatch' + (i === 0 ? ' active' : '');
+    b.style.background = c;
+    if (c === '#FFFFFF') b.style.border = '2px solid #ccc';
+    b.addEventListener('click', () => {
+      currentColor = c;
+      erasing = false;
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      b.classList.add('active');
+      eraserBtn.classList.remove('primary');
+    });
+    swatchWrap.appendChild(b);
+  });
+
+  const sizeSlider = document.getElementById('brushSize');
+  const eraserBtn = document.getElementById('eraserBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const saveBtn = document.getElementById('saveBtn');
+
+  eraserBtn.addEventListener('click', () => {
+    erasing = !erasing;
+    eraserBtn.classList.toggle('primary', erasing);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'doodle.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // drawing logic
+  let drawing = false;
+  let last = { x: 0, y: 0 };
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const point = e.touches ? e.touches[0] : e;
+    return {
+      x: (point.clientX - rect.left) * scaleX,
+      y: (point.clientY - rect.top) * scaleY
+    };
+  }
+
+  function start(e) {
+    drawing = true;
+    last = getPos(e);
+    // draw a dot for single clicks/taps
+    ctx.beginPath();
+    ctx.fillStyle = erasing ? '#ffffff' : currentColor;
+    ctx.arc(last.x, last.y, sizeSlider.value / 2, 0, Math.PI * 2);
+    ctx.fill();
+    e.preventDefault();
+  }
+
+  function move(e) {
+    if (!drawing) return;
+    const pos = getPos(e);
+    ctx.strokeStyle = erasing ? '#ffffff' : currentColor;
+    ctx.lineWidth = sizeSlider.value;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    last = pos;
+    e.preventDefault();
+  }
+
+  function end() { drawing = false; }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+</script>
+
+</body>
+</html>
